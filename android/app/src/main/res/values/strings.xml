@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">ClawAgent</string>
+    <!-- NativeAccessibilityService 在无障碍设置页面显示的名称和描述 -->
+    <string name="native_accessibility_service_label">ClawAgent 原生控制</string>
+    <string name="native_accessibility_service_description">允许 ClawAgent AI 助手通过无障碍服务操控任意原生 Android 应用，实现界面感知、点击、输入等自动化操作。</string>
+</resources>

@@ -1,0 +1,25 @@
+# Local configuration (SDK path — machine-specific)
+local.properties
+
+# Build artifacts
+.gradle/
+build/
+*/build/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# macOS
+.DS_Store
+
+# Signing keys (never commit)
+signature/
+*.jks
+*.keystore
+
+# Native build
+.cxx/
