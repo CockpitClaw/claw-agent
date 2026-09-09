@@ -1,4 +1,4 @@
-module mac-web-agent
+module claw-agent
 
 go 1.25
 

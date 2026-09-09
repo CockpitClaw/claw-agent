@@ -12,9 +12,10 @@ user-invocable: false
 
 This skill is your **only** correct playbook for buying anything on 京东 through the `browser` MCP. Follow it step-by-step. Do NOT invent alternative approaches without checking here first.
 
-## 环境（browser，与车机不同）
+## 环境（mac 浏览器 / 车机 WebView 通用）
 
-- **pageId 约定为 1000**（`list_pages` 返回的第一个页面 id）。整个购买流程都在 `pageId=1000` 上进行。
+- **pageId**：先调 `list_pages` 拿浏览器页 id 并在全文使用该值。桌面 Chrome 恒为 `1000`；车机内嵌 WebView 为 `list_pages` 返回的 id（通常 `1`）。整个购买流程都在这个 pageId 上进行。
+- **仅车机**（browser MCP 无 `set_user_agent` 工具，mac 跳过本步）：首次 `navigate_page` 前调 `set_user_agent(mode="mac")` 设桌面 UA，让京东返回 PC 版 DOM（`item.jd.com` / 结算 iframe），下文的 PC 选择器才能原样可用。mac 上天然桌面 UA，无需此步。
 - **CSS 像素 == 视口像素**，`physScale=1`。click 坐标直接用 `getBoundingClientRect()` 返回的 CSS px，不需要任何缩放。
 - **禁止传 `displayedWidth` 参数**给 click——本 MCP 的 click 不支持它，传了会被忽略。
 - **跨域 iframe**（京东结算弹窗 `https://pc-settlement-lite-pro.pf.jd.com`）必须用 `evaluate_script_in_frame`，主 frame 的 `evaluate_script` 看不到它。
@@ -192,11 +193,41 @@ click 立即购买后，用 `evaluate_script` 取一次 `location.href` 判断�
 
 ⛔ click 后**禁止** take_screenshot、take_snapshot（弹窗/订单页 DOM 大且无用）。允许一次 `evaluate_script` 取 `location.href` 判断落地；若是 iframe 弹窗形态，改用 `evaluate_script_in_frame`。
 
-### 3.5 流程中换尺码
+### 3.5 流程中换尺码（改码）
 
-用户在 Step 3a 等待期间说"换成 X 码"，且仍在详情页（URL 含 item.jd/npcitem）→ 直接重跑 `jd_select_size(pageId=1000, size="X")`，⛔ 禁止重新 navigate 详情页、重新点立即购买、重新搜索。
+用户说"换成 X 码 / 改成 X 码 / 改成 X"时，⛔ **先判断当前状态再动手**，用一次 evaluate_script 判断：
 
-若已进 trade.jd.hk 订单页（尺码已固化进订单），换尺码需重新从详情页开始：navigate 回原 SKU 详情页 → Step 3a 重选 → Step 3b 重新点立即购买。
+```
+evaluate_script(pageId=1000, script="JSON.stringify({url:location.href, hasSettlement: !!document.querySelector('iframe[src*=\"pf.jd.com\"], iframe[src*=\"settlement\"]')})")
+```
+
+分三种情况处理：
+
+**A. 仍在详情页、且无结算弹窗**（url 含 item.jd/npcitem 且 `hasSettlement=false`）：
+直接 `jd_select_size(pageId=1000, size="X")` 换码，然后回 Step 3b 重新点"立即购买"。⛔ 禁止重新 navigate / 重新搜索。
+
+**B. 详情页上已叠 iframe 结算弹窗**（url 仍 item.jd.com 且 `hasSettlement=true`）：
+旧弹窗里是旧尺码，⛔ 不能直接在弹窗里改（或改了也会残留旧码误导）。必须先**重开干净状态**：
+1. 关闭旧弹窗：优先点弹窗右上角关闭按钮，找不到就 reload 详情页：
+   ```
+   navigate_page(pageId=1000, url="<当前 item.jd.com 的 SKU 详情页 URL>")
+   ```
+2. 回到 Step 3a：`jd_get_sizes` → `jd_select_size(pageId=1000, size="X")`
+3. Step 3b 重新点"立即购买"，弹出新结算弹窗
+4. ⛔ **必须验证**（见下方"改码后验证"）
+
+**C. 已进 trade.jd 订单页**（尺码已固化进订单）：
+同 B：navigate 回原 SKU 详情页 → Step 3a 重选 → Step 3b 重新点立即购买 → 验证。
+
+#### 改码后验证（B/C 必须做，A 也要顺带确认）
+
+改码并重新点立即购买后，用 `evaluate_script_in_frame` 读结算 iframe 里的尺码，⛔ **确认与目标码一致**，否则重复上面步骤（最多再 1 次），仍不一致则 HARD STOP 告知用户：
+
+```
+evaluate_script_in_frame(pageId=1000, frameUrl="https://pc-settlement-lite-pro.pf.jd.com", script="(function(){var t=document.body.innerText||'';var i=t.indexOf('尺码');return t.slice(i,i+60).replace(/\\s+/g,' ');})()")
+```
+
+⛔⛔ **铁律：只改详情页的选择器不算完成**。旧结算弹窗会残留旧码误导用户——改码的完成标志是**新结算弹窗里的尺码 = 目标码**。
 
 ### 4. 订单确认页 → 点提交订单 → 支付页 → 停下交用户付款
 

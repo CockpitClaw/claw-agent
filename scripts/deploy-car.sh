@@ -115,6 +115,10 @@ step "push 车机 skills（逐个 push，skill 发现只认单层目录）"
 adb -s "$DEV" shell "su 0 mkdir -p $CAR_WORKSPACE/skills"
 adb -s "$DEV" push "$ROOT/car-skills/fallback-webview" "$CAR_WORKSPACE/skills/"
 adb -s "$DEV" push "$ROOT/car-skills/car-native" "$CAR_WORKSPACE/skills/"
+# 跨平台购物/购票 skills：京东/淘宝/猫眼（确定性 helper 已随 android-mcp 一起上线）
+adb -s "$DEV" push "$ROOT/skills/jd-shopping" "$CAR_WORKSPACE/skills/"
+adb -s "$DEV" push "$ROOT/skills/taobao-shopping" "$CAR_WORKSPACE/skills/"
+adb -s "$DEV" push "$ROOT/skills/maoyan-movie" "$CAR_WORKSPACE/skills/"
 ok "skills 已就位"
 
 # ── 8. 运行 agent ──────────────────────────────────────────────

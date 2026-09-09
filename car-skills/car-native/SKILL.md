@@ -40,7 +40,7 @@ mcp_android_native_screenshot                       → 全屏截图（系统级
 3. **ref 只在两次 `get_ui_tree` 之间有效**：每次 `native_get_ui_tree` 后旧 ref 失效，重新拉树拿新 ref。
 4. **坐标点击前先 `get_ui_tree`**：用坐标 `click(x,y)` 时，坐标必须来自最近一次 `native_get_ui_tree`（或 `native_screenshot` 同 displayId）返回的节点边界，不能凭空猜。
 5. **输入文字先聚焦**：`native_input_text` 前先 `native_click`/`native_click_node` 点中目标输入框。
-6. **操作前确认前台 app**：必要时 `native_get_foreground_app` 确认目标 app 已在前台（理想车机 sidebar 遮罩下 app 可能在后台但无障碍仍可读，如实处理）。
+6. **操作前确认前台 app**：必要时 `native_get_foreground_app` 确认目标 app 已在前台（车机 sidebar 遮罩下 app 可能在后台但无障碍仍可读，如实处理）。
 7. **连续失败 3 次 HARD STOP**：同一操作连续失败 2 次后停止并告知用户，禁止无脑试错。
 
 ## 标准流程

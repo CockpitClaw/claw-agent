@@ -22,10 +22,10 @@ user-invocable: false
 ⛔ **以下工具不存在，调用必然报错：**
 `screenshot` / `get_seats` / `select_best_seat` / `get_page_content` / `take_screenshot`(全程不用截图，用 take_snapshot 看 DOM)
 
-## 环境
+## 环境（mac 浏览器 / 车机 WebView 通用）
 
-- **pageId=1000**，整个流程都在这个页面（除非 0 tab 时先 new_page）。
-- CSS px == viewport px，`physScale=1`（helper 内部已处理）。
+- **pageId**：先调 `list_pages` 拿浏览器页 id 并在全文使用该值。桌面 Chrome 恒为 `1000`；车机内嵌 WebView 为 `list_pages` 返回的 id（通常 `1`）。
+- **仅车机**（browser MCP 无 `set_user_agent` 工具，mac 跳过本步）：首次 `navigate_page` 前调 `set_user_agent(mode="mac")` 设桌面 UA，让猫眼返回 PC 版 DOM（`maoyan.com`）。mac 上天然桌面 UA，无需此步。
 - ⛔ **禁止用 `take_screenshot`**，全程用 `take_snapshot` 看 DOM tree（2-6ms，带 [ref=eN] 可直接 click）。
 
 ## 前置：确保有可用 tab

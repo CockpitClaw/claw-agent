@@ -14,7 +14,7 @@
       "provider": "",
       "model_name": "${PICOCRAW_MODEL_NAME}",
       "max_tokens": 65536,
-      "max_tool_iterations": 70,
+      "max_tool_iterations": 200,
       "summarize_message_threshold": 10,
       "summarize_token_percent": 75,
       "steering_mode": "one-at-a-time",

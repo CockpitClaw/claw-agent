@@ -4,14 +4,20 @@ import android.util.Base64
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.clawagent.cdp.WebViewBridge
 import com.clawagent.mcp.browser.CdpBrowserBridge
 import com.clawagent.mcp.browser.DevToolsDiscovery
 import com.clawagent.util.LogUtil
 import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 /**
  * MCP Tools — tool definitions and implementations.
@@ -516,6 +522,124 @@ class McpTools(private val bridge: WebViewBridge, private val apkPath: String = 
                     add("required", jsonArrayOf("pageId"))
                 }))
 
+            // ── Shopping helpers (JD / Maoyan) — ported from browser-mcp ──
+
+            add(createToolDef(
+                "new_page",
+                "Create or reuse a browser page and navigate it to the given URL. " +
+                "On Android there is a single embedded WebView, so this reuses it and returns its pageId.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply {
+                        add("url", strProp("URL to navigate the new page to"))
+                    })
+                    add("required", jsonArrayOf("url"))
+                }))
+
+            add(createToolDef(
+                "dom_click",
+                "Click an element by exact visible text. Searches a/button/div/span; dispatches a real DOM click. " +
+                "Returns { clicked: true, text, x, y } or { clicked: false }.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply {
+                        add("pageId", numProp("Page ID"))
+                        add("text", strProp("Exact visible text of the element to click"))
+                        add("maxWidth", numProp("Optional: max element width in px (default 500)"))
+                    })
+                    add("required", jsonArrayOf("pageId", "text"))
+                }))
+
+            add(createToolDef(
+                "jd_get_sizes",
+                "Extract the selectable size list from a JD product detail page. " +
+                "Returns sizes with coordinates and selected/outOfStock flags.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply { add("pageId", numProp("Page ID")) })
+                    add("required", jsonArrayOf("pageId"))
+                }))
+
+            add(createToolDef(
+                "jd_select_size",
+                "Select a size on a JD product detail page by its text (e.g. \"43\"). " +
+                "Returns ok/selected or an error.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply {
+                        add("pageId", numProp("Page ID"))
+                        add("size", strProp("Target size text, e.g. \"43\""))
+                    })
+                    add("required", jsonArrayOf("pageId", "size"))
+                }))
+
+            add(createToolDef(
+                "jd_find_pay_button",
+                "Find the pay/submit button on a JD order page (main frame or the pc-settlement iframe). " +
+                "Auto-detects single_page / two_phase_submit / iframe forms.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply { add("pageId", numProp("Page ID")) })
+                    add("required", jsonArrayOf("pageId"))
+                }))
+
+            add(createToolDef(
+                "maoyan_get_cinemas",
+                "Extract the cinema list from a Maoyan movie page. Returns cinemas with coords, name, price, distance.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply { add("pageId", numProp("Page ID")) })
+                    add("required", jsonArrayOf("pageId"))
+                }))
+
+            add(createToolDef(
+                "maoyan_get_shows",
+                "Extract showtimes for a movie at a Maoyan cinema (filters by date and movieId).",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply {
+                        add("pageId", numProp("Page ID"))
+                        add("date", strProp("Optional: \"today\" / \"tomorrow\" / YYYYMMDD"))
+                        add("movieId", strProp("Optional: movie film id; extracted from URL if omitted"))
+                    })
+                    add("required", jsonArrayOf("pageId"))
+                }))
+
+            add(createToolDef(
+                "maoyan_click_show",
+                "Navigate to the seat-picking page (xseats) for a specific Maoyan showtime.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply {
+                        add("pageId", numProp("Page ID"))
+                        add("time", strProp("Showtime, e.g. \"19:00\""))
+                        add("movieId", strProp("Optional: movie film id; extracted from URL if omitted"))
+                        add("date", strProp("Optional: \"today\" / \"tomorrow\" / YYYYMMDD"))
+                    })
+                    add("required", jsonArrayOf("pageId", "time"))
+                }))
+
+            add(createToolDef(
+                "maoyan_query_seats",
+                "Query the seat layout on a Maoyan seat-picking page, returning rows and the confirm button.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply { add("pageId", numProp("Page ID")) })
+                    add("required", jsonArrayOf("pageId"))
+                }))
+
+            add(createToolDef(
+                "maoyan_select_seat",
+                "Pick and confirm a Maoyan seat by row/column hint (row front/middle/back, col left/center/right), " +
+                "then auto-confirm through the modal.",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply {
+                        add("pageId", numProp("Page ID"))
+                        add("rowHint", strProp("Optional: \"front\" | \"middle\" | \"back\" (default middle)"))
+                        add("colHint", strProp("Optional: \"left\" | \"center\" | \"right\" (default center)"))
+                    })
+                    add("required", jsonArrayOf("pageId"))
+                }))
+
+            add(createToolDef(
+                "maoyan_dismiss_modal",
+                "Dismiss the Maoyan \"我知道了\" modal (or detect an isolated-seat warning).",
+                JsonObject().apply {
+                    add("properties", JsonObject().apply { add("pageId", numProp("Page ID")) })
+                    add("required", jsonArrayOf("pageId"))
+                }))
+
             }
     }
 
@@ -548,6 +672,17 @@ class McpTools(private val bridge: WebViewBridge, private val apkPath: String = 
             "scroll_up"       -> toolScrollUp(arguments)
             "scroll_down"     -> toolScrollDown(arguments)
             "set_geolocation_policy" -> toolSetGeolocationPolicy(arguments)
+            "new_page"        -> toolNewPage(arguments)
+            "dom_click"       -> toolDomClick(arguments)
+            "jd_get_sizes"    -> toolJdGetSizes(arguments)
+            "jd_select_size"  -> toolJdSelectSize(arguments)
+            "jd_find_pay_button" -> toolJdFindPayButton(arguments)
+            "maoyan_get_cinemas" -> toolMaoyanGetCinemas(arguments)
+            "maoyan_get_shows"   -> toolMaoyanGetShows(arguments)
+            "maoyan_click_show"  -> toolMaoyanClickShow(arguments)
+            "maoyan_query_seats" -> toolMaoyanQuerySeats(arguments)
+            "maoyan_select_seat" -> toolMaoyanSelectSeat(arguments)
+            "maoyan_dismiss_modal" -> toolMaoyanDismissModal(arguments)
             else -> throw IllegalArgumentException("Unknown tool: $name")
         }
     }
@@ -1259,7 +1394,8 @@ class McpTools(private val bridge: WebViewBridge, private val apkPath: String = 
         val pageBridge  = getBridgeForPage(pageId)
 
         // Coordinate mode: x/y/displayedWidth provided instead of target selector.
-        // Coordinate mode: x/y are physical pixel coordinates (same system as take_screenshot / take_snapshot).
+        // x/y are CSS (viewport) px, same system as getBoundingClientRect(); we
+        // convert to physical View px via viewportZoom before dispatching.
         if (target == null) {
             val rawX           = args.get("x")?.asFloat ?: throw IllegalArgumentException("Missing target or x/y")
             val rawY           = args.get("y")?.asFloat ?: throw IllegalArgumentException("Missing target or x/y")
@@ -1274,7 +1410,8 @@ class McpTools(private val bridge: WebViewBridge, private val apkPath: String = 
                 cx = rawX
                 cy = rawY
             }
-            val nativeOk = pageBridge.dispatchTouchAt(cx, cy)
+            val zoom = pageBridge.viewportZoom
+            val nativeOk = pageBridge.dispatchTouchAt(cx * zoom, cy * zoom)
             return JsonObject().apply {
                 addProperty("success", nativeOk)
                 addProperty("mode", if (nativeOk) "native" else "fallback")
@@ -1852,6 +1989,523 @@ class McpTools(private val bridge: WebViewBridge, private val apkPath: String = 
             addProperty("direction", "down")
             addProperty("distance", dist)
             if (!ok) addProperty("error", "dispatchSwipe returned false")
+        }
+    }
+
+    // ── Shopping helpers (JD / Maoyan) implementations ────────────────────
+    // Ported from browser-mcp/jd_tools.go + maoyan_tools.go. The JS scripts live
+    // in JdHelpers.kt / MaoyanHelpers.kt and return JSON.stringify(...).
+
+    private suspend fun evalString(pageBridge: WebViewBridge, script: String): String? {
+        val raw = try { pageBridge.evaluateJs(script) } catch (e: Exception) { return null }
+        return decodeJsStringValue(raw)
+    }
+
+    private fun decodeJsStringValue(raw: String): String {
+        val t = raw.trim()
+        return try { gson.fromJson(t, String::class.java) ?: t } catch (e: Exception) { t }
+    }
+
+    private suspend fun evalJson(pageBridge: WebViewBridge, script: String): JsonElement? {
+        val raw = try { pageBridge.evaluateJs(script) } catch (e: Exception) { return null }
+        return decodeJsJson(raw)
+    }
+
+    private fun decodeJsJson(raw: String): JsonElement? {
+        val t = raw.trim()
+        if (t.isEmpty() || t == "null") return null
+        return try {
+            if (t[0] == '{' || t[0] == '[') JsonParser.parseString(t)
+            else {
+                val s = gson.fromJson(t, String::class.java) ?: return null
+                if (s.isNotEmpty() && (s[0] == '{' || s[0] == '[')) JsonParser.parseString(s) else null
+            }
+        } catch (e: Exception) { null }
+    }
+
+    // Click a CSS-pixel coordinate. The JS helpers return CSS px (maoyan scripts
+    // already multiply by physScale, which equals 1 in a WebView); convert to
+    // physical View px via viewportZoom, matching toolClick's ref path.
+    private suspend fun dispatchClickAt(pageBridge: WebViewBridge, x: Double, y: Double) {
+        val zoom = pageBridge.viewportZoom
+        pageBridge.dispatchTouchAt((x * zoom).toFloat(), (y * zoom).toFloat())
+    }
+
+    private suspend fun evalRaw(pageBridge: WebViewBridge, script: String) {
+        try { pageBridge.evaluateJs(script) } catch (_: Exception) {}
+    }
+
+    private fun resolveTargetDate(date: String): String {
+        val today = LocalDate.now()
+        return when (date) {
+            "", "today" -> today.format(DateTimeFormatter.BASIC_ISO_DATE)
+            "tomorrow" -> today.plusDays(1).format(DateTimeFormatter.BASIC_ISO_DATE)
+            else -> date
+        }
+    }
+
+    private suspend fun toolNewPage(args: JsonObject): JsonObject {
+        val url = args.get("url")?.asString ?: throw IllegalArgumentException("Missing url")
+        val pageId = pages.values.firstOrNull { it.source == PageSource.INTERNAL }?.id ?: 1
+        pages[pageId]?.url = url
+        val pageBridge = getBridgeForPage(pageId)
+        cdp()
+        val result = pageBridge.navigateAsync(url)
+        return JsonObject().apply {
+            addProperty("pageId", pageId)
+            addProperty("success", result.success)
+            result.errorText?.let { addProperty("error", it) }
+        }
+    }
+
+    private suspend fun toolDomClick(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val text = args.get("text")?.asString ?: throw IllegalArgumentException("Missing text")
+        val maxW = args.get("maxWidth")?.asInt ?: 500
+        val pageBridge = getBridgeForPage(pageId)
+        val script = MAOYAN_DOM_CLICK_SCRIPT_TEMPLATE
+            .replace("TEXTS_JSON", gson.toJson(listOf(text)))
+            .replace("MAX_WIDTH", maxW.toString())
+        val el = evalJson(pageBridge, script)
+        if (el != null && el.isJsonObject) return el.asJsonObject
+        return JsonObject().apply { addProperty("clicked", false) }
+    }
+
+    private suspend fun toolJdGetSizes(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val pageBridge = getBridgeForPage(pageId)
+        val deadline = System.currentTimeMillis() + 3000L
+        while (true) {
+            val el = evalJson(pageBridge, JD_GET_SIZES_SCRIPT)
+            val obj = el?.takeIf { it.isJsonObject }?.asJsonObject
+            val sizes = obj?.getAsJsonArray("sizes")
+            if (sizes != null && sizes.size() > 0) return obj
+            if (System.currentTimeMillis() >= deadline) {
+                return obj ?: JsonObject().apply {
+                    addProperty("found", false)
+                    add("sizes", JsonArray())
+                }
+            }
+            kotlinx.coroutines.delay(300)
+        }
+    }
+
+    private suspend fun jdSelectionVerified(pageBridge: WebViewBridge, target: String): Boolean {
+        val el = evalJson(pageBridge, JD_GET_SIZES_SCRIPT) ?: return false
+        val obj = el.asJsonObject ?: return false
+        val sizes = obj.getAsJsonArray("sizes") ?: return false
+        for (sz in sizes) {
+            val so = sz.asJsonObject
+            if (so.get("text")?.asString == target && so.get("selected")?.asBoolean == true) return true
+        }
+        return false
+    }
+
+    private suspend fun toolJdSelectSize(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val target = args.get("size")?.asString ?: throw IllegalArgumentException("Missing size")
+        val pageBridge = getBridgeForPage(pageId)
+        val script = JD_SELECT_SIZE_SCRIPT_TEMPLATE.replace("SELECTED_SIZE", gson.toJson(target))
+        val raw = evalJson(pageBridge, script)?.asJsonObject
+            ?: return JsonObject().apply { addProperty("ok", false); addProperty("error", "size_not_in_list") }
+        if (raw.get("clicked")?.asBoolean != true) {
+            return JsonObject().apply { addProperty("ok", false); addProperty("error", "size_not_in_list") }
+        }
+        kotlinx.coroutines.delay(800)
+        if (jdSelectionVerified(pageBridge, target)) {
+            return JsonObject().apply { addProperty("ok", true); addProperty("selected", target) }
+        }
+        val x = raw.get("x")?.asDouble
+        val y = raw.get("y")?.asDouble
+        if (x != null && y != null) {
+            dispatchClickAt(pageBridge, x, y)
+            kotlinx.coroutines.delay(800)
+            if (jdSelectionVerified(pageBridge, target)) {
+                return JsonObject().apply {
+                    addProperty("ok", true); addProperty("selected", target); addProperty("fallback", "coord")
+                }
+            }
+        }
+        return JsonObject().apply { addProperty("ok", false); addProperty("error", "click_no_effect") }
+    }
+
+    private suspend fun toolJdFindPayButton(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val pageBridge = getBridgeForPage(pageId)
+        val payTexts = """["立即支付","去付款","确认支付","立即付款","去支付"]"""
+        val submitTexts = """["提交订单","确认订单","提交","确认提交","去结算","结算"]"""
+        val iframeUrl = "https://pc-settlement-lite-pro.pf.jd.com"
+        val deadline = System.currentTimeMillis() + 8000L
+        while (true) {
+            val pay = evalJson(pageBridge, jdFindButtonScript(payTexts))?.asJsonObject
+            if (pay?.get("txt")?.asString?.isNotEmpty() == true) {
+                return JsonObject().apply { addProperty("form", "single_page"); add("btn", pay) }
+            }
+            val submit = evalJson(pageBridge, jdFindButtonScript(submitTexts))?.asJsonObject
+            if (submit?.get("txt")?.asString?.isNotEmpty() == true) {
+                return JsonObject().apply { addProperty("form", "two_phase_submit"); add("btn", submit) }
+            }
+            try {
+                val ch = cdp()
+                if (ch != null) {
+                    val iframeRaw = ch.evaluateInFrameByOrigin(iframeUrl, jdFindButtonScript(payTexts), 2000L)
+                    val iObj = decodeJsJson(iframeRaw)
+                    if (iObj != null && iObj.isJsonObject && iObj.asJsonObject.get("txt")?.asString?.isNotEmpty() == true) {
+                        return JsonObject().apply {
+                            addProperty("form", "iframe"); addProperty("iframe", iframeUrl); add("btn", iObj)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+            if (System.currentTimeMillis() >= deadline) break
+            kotlinx.coroutines.delay(500)
+        }
+        return JsonObject().apply {
+            addProperty("error", "not_found")
+            addProperty("reason", "8s 内未找到支付/提交按钮，页面可能未加载或需要登录")
+        }
+    }
+
+    private suspend fun movieIdFromUrl(pageBridge: WebViewBridge): String {
+        val url = evalString(pageBridge, "location.href") ?: return ""
+        val i = url.indexOf("movieId=")
+        if (i < 0) return ""
+        val rest = url.substring(i + 8)
+        val end = rest.indexOfAny(charArrayOf('&', '"'))
+        return rest.substring(0, if (end < 0) rest.length else end)
+    }
+
+    private suspend fun toolMaoyanGetCinemas(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val pageBridge = getBridgeForPage(pageId)
+        kotlinx.coroutines.delay(800)
+        var arr: JsonArray? = null
+        val deadline = System.currentTimeMillis() + 3000L
+        while (true) {
+            val el = evalJson(pageBridge, MAOYAN_CINEMA_SCRIPT)
+            if (el?.isJsonArray == true && el.asJsonArray.size() > 0) { arr = el.asJsonArray; break }
+            if (System.currentTimeMillis() >= deadline) break
+            kotlinx.coroutines.delay(300)
+        }
+        val cinemas = arr ?: JsonArray()
+        val chaoyang = JsonArray(); val others = JsonArray()
+        for (c in cinemas) {
+            val co = c.asJsonObject
+            if ((co.get("address")?.asString ?: "").contains("朝阳")) chaoyang.add(co) else others.add(co)
+        }
+        val sorted = JsonArray()
+        chaoyang.forEach { sorted.add(it) }
+        others.forEach { sorted.add(it) }
+        sorted.forEachIndexed { i, e -> e.asJsonObject.addProperty("index", i) }
+        return JsonObject().apply { add("cinemas", sorted) }
+    }
+
+    private suspend fun toolMaoyanGetShows(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val date = args.get("date")?.asString ?: ""
+        var movieId = args.get("movieId")?.asString ?: ""
+        val pageBridge = getBridgeForPage(pageId)
+        val targetDate = resolveTargetDate(date)
+        if (movieId.isEmpty()) movieId = movieIdFromUrl(pageBridge)
+        kotlinx.coroutines.delay(500)
+        val script = MAOYAN_SHOWS_BY_DATE_SCRIPT_TEMPLATE
+            .replace("TARGET_DATE", gson.toJson(targetDate))
+            .replace("MOVIE_ID", gson.toJson(movieId))
+        var obj: JsonObject? = null
+        val deadline = System.currentTimeMillis() + 3000L
+        while (true) {
+            val el = evalJson(pageBridge, script)
+            if (el?.isJsonObject == true) {
+                val o = el.asJsonObject
+                val has = o.getAsJsonArray("shows")?.size() ?: 0
+                obj = o
+                if (has > 0) break
+            }
+            if (System.currentTimeMillis() >= deadline) break
+            kotlinx.coroutines.delay(300)
+        }
+        val m = obj ?: JsonObject().apply {
+            addProperty("count", 0)
+            add("shows", JsonArray())
+            addProperty("targetDate", targetDate)
+            addProperty("movieId", movieId)
+        }
+        if (date.isEmpty() || date == "today") {
+            val shows = m.getAsJsonArray("shows") ?: JsonArray()
+            val keep = JsonArray()
+            for (sh in shows) if (sh.asJsonObject.get("passed")?.asBoolean != true) keep.add(sh)
+            m.add("shows", keep)
+            m.addProperty("count", keep.size())
+        }
+        m.addProperty("targetDate", targetDate)
+        m.addProperty("movieId", movieId)
+        return m
+    }
+
+    private suspend fun toolMaoyanClickShow(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val time = args.get("time")?.asString ?: ""
+        var movieId = args.get("movieId")?.asString ?: ""
+        val date = args.get("date")?.asString ?: ""
+        val pageBridge = getBridgeForPage(pageId)
+        val targetDate = resolveTargetDate(date)
+        if (movieId.isEmpty()) movieId = movieIdFromUrl(pageBridge)
+        val script = MAOYAN_CLICK_SHOW_SCRIPT_TEMPLATE
+            .replace("CLICK_TIME", gson.toJson(time))
+            .replace("CLICK_MOVIE_ID", gson.toJson(movieId))
+            .replace("CLICK_DATE", gson.toJson(targetDate))
+        val found = evalJson(pageBridge, script)?.asJsonObject?.get("found")?.asBoolean
+        if (found != true) {
+            return JsonObject().apply {
+                addProperty("ok", false); addProperty("error", "show_not_found_in_dom")
+                addProperty("time", time); addProperty("movieId", movieId); addProperty("targetDate", targetDate)
+            }
+        }
+        kotlinx.coroutines.delay(4000)
+        val urlAfter = evalString(pageBridge, "location.href") ?: ""
+        return when {
+            urlAfter.contains("/xseats/") -> JsonObject().apply { addProperty("ok", true); addProperty("xseatsUrl", urlAfter) }
+            urlAfter.contains("passport") || urlAfter.contains("login") ->
+                JsonObject().apply { addProperty("ok", false); addProperty("error", "redirected_to_login"); addProperty("url", urlAfter) }
+            else -> JsonObject().apply { addProperty("ok", false); addProperty("error", "xseats_not_reached"); addProperty("url", urlAfter) }
+        }
+    }
+
+    private suspend fun toolMaoyanQuerySeats(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val pageBridge = getBridgeForPage(pageId)
+        val m = evalJson(pageBridge, MAOYAN_SEAT_QUERY_SCRIPT)?.asJsonObject
+            ?: return JsonObject().apply { addProperty("ok", false); addProperty("error", "query_failed") }
+        m.addProperty("ok", true)
+        return m
+    }
+
+    private suspend fun domClickByText(pageBridge: WebViewBridge, texts: List<String>, maxWidth: Int): Boolean {
+        val script = MAOYAN_DOM_CLICK_SCRIPT_TEMPLATE
+            .replace("TEXTS_JSON", gson.toJson(texts))
+            .replace("MAX_WIDTH", maxWidth.toString())
+        return evalJson(pageBridge, script)?.asJsonObject?.get("clicked")?.asBoolean == true
+    }
+
+    private suspend fun toolMaoyanDismissModal(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val pageBridge = getBridgeForPage(pageId)
+        val res = evalString(pageBridge, MAOYAN_DISMISS_MODAL_SCRIPT) ?: "no-modal"
+        if (res == "no-modal" || res == "no-btn") return JsonObject().apply { addProperty("ok", true); addProperty("modal", "none") }
+        if (res == "isolated-warning") return JsonObject().apply { addProperty("ok", false); addProperty("error", "isolated_seat") }
+        val coord = try { JsonParser.parseString(res).asJsonObject } catch (e: Exception) { null }
+        if (!domClickByText(pageBridge, listOf("我知道了"), 400)) {
+            val x = coord?.get("x")?.asDouble ?: 0.0
+            val y = coord?.get("y")?.asDouble ?: 0.0
+            if (x > 0 || y > 0) dispatchClickAt(pageBridge, x, y)
+        }
+        kotlinx.coroutines.delay(800)
+        return JsonObject().apply { addProperty("ok", true); addProperty("modal", "closed") }
+    }
+
+    private fun wouldIsolate(allSeats: JsonArray, seatX: Double): Boolean {
+        val occupied = BooleanArray(allSeats.size())
+        for (i in 0 until allSeats.size()) {
+            val sm = allSeats.get(i).asJsonObject
+            val avail = sm.get("avail")?.asBoolean ?: false
+            val sx = sm.get("x")?.asDouble ?: 0.0
+            occupied[i] = !avail || sx == seatX
+        }
+        var i = 0
+        while (i < occupied.size) {
+            if (!occupied[i]) {
+                var j = i
+                while (j < occupied.size && !occupied[j]) j++
+                if (j - i == 1) return true
+                i = j
+            } else i++
+        }
+        return false
+    }
+
+    private suspend fun selectedNowCount(pageBridge: WebViewBridge): Int {
+        val v = evalJson(pageBridge, MAOYAN_SEAT_VERIFY_SCRIPT)?.asJsonObject ?: return 0
+        return v.get("selectedNow")?.asInt ?: 0
+    }
+
+    private suspend fun autoConfirmSeat(pageBridge: WebViewBridge, orderBtn: JsonElement?): JsonObject {
+        for (attempt in 0 until 5) {
+            val urlStr = evalString(pageBridge, "location.href") ?: ""
+            if (urlStr.contains("/order/confirm")) return JsonObject().apply { addProperty("ok", true); addProperty("orderUrl", urlStr) }
+            val modalStr = evalString(pageBridge, MAOYAN_DISMISS_MODAL_SCRIPT) ?: "no-modal"
+            if (modalStr == "isolated-warning") return JsonObject().apply { addProperty("ok", false); addProperty("error", "isolated_seat") }
+            if (modalStr != "no-modal" && modalStr != "no-btn") {
+                val coord = try { JsonParser.parseString(modalStr).asJsonObject } catch (e: Exception) { null }
+                if (coord != null) {
+                    if (!domClickByText(pageBridge, listOf("我知道了"), 400)) {
+                        val x = coord.get("x")?.asDouble ?: 0.0
+                        val y = coord.get("y")?.asDouble ?: 0.0
+                        if (x > 0 || y > 0) dispatchClickAt(pageBridge, x, y)
+                    }
+                    kotlinx.coroutines.delay(800)
+                    continue
+                }
+            }
+            val check = evalJson(pageBridge, MAOYAN_CHECK_CONFIRM_BTN_SCRIPT)?.asJsonObject
+            val blocked = check?.get("blocked")?.asBoolean ?: false
+            var btnX = check?.get("x")?.asDouble ?: 0.0
+            var btnY = check?.get("y")?.asDouble ?: 0.0
+            if (btnX == 0.0 && orderBtn != null && orderBtn.isJsonObject) {
+                btnX = orderBtn.asJsonObject.get("x")?.asDouble ?: 0.0
+                btnY = orderBtn.asJsonObject.get("y")?.asDouble ?: 0.0
+            }
+            if (!blocked) {
+                if (!domClickByText(pageBridge, listOf("确认选座"), 500)) {
+                    if (btnX > 0 && btnY > 0) dispatchClickAt(pageBridge, btnX, btnY)
+                }
+                kotlinx.coroutines.delay(2500)
+            }
+        }
+        val finalUrl = evalString(pageBridge, "location.href") ?: ""
+        return if (finalUrl.contains("/order/confirm"))
+            JsonObject().apply { addProperty("ok", true); addProperty("orderUrl", finalUrl) }
+        else JsonObject().apply { addProperty("ok", false); addProperty("orderUrl", finalUrl) }
+    }
+
+    private suspend fun toolMaoyanSelectSeat(args: JsonObject): JsonObject {
+        val pageId = args.get("pageId")?.asInt ?: throw IllegalArgumentException("Missing pageId")
+        val rowHint = args.get("rowHint")?.asString ?: "middle"
+        val colHint = args.get("colHint")?.asString ?: "center"
+        val pageBridge = getBridgeForPage(pageId)
+
+        val info = evalJson(pageBridge, MAOYAN_SEAT_QUERY_SCRIPT)?.asJsonObject
+            ?: return JsonObject().apply { addProperty("ok", false); addProperty("error", "query_failed") }
+        val availCount = info.get("availableCount")?.asInt ?: 0
+        if (availCount == 0) return JsonObject().apply { addProperty("ok", false); addProperty("error", "no_selectable_seats") }
+        val rows = info.getAsJsonArray("rows") ?: JsonArray()
+        val n = rows.size()
+        val cx = info.get("centerX")?.asDouble ?: 0.0
+
+        var idx = when (rowHint) {
+            "front" -> (n * 0.15).toInt()
+            "back" -> (n * 0.85).toInt()
+            else -> (n * 0.5).toInt()
+        }
+        if (idx >= n) idx = n - 1
+        if (idx < 0) idx = 0
+
+        fun pickRow(i: Int): JsonObject? {
+            if (i < 0 || i >= n) return null
+            val r = rows.get(i).asJsonObject
+            return if ((r.get("count")?.asInt ?: 0) > 0) r else null
+        }
+        var row = pickRow(idx)
+        if (row == null) {
+            for (d in 1 until n) {
+                row = pickRow(idx + d) ?: pickRow(idx - d)
+                if (row != null) break
+            }
+        }
+        if (row == null) return JsonObject().apply { addProperty("ok", false); addProperty("error", "no_row_found") }
+
+        val seats = row.getAsJsonArray("seats") ?: JsonArray()
+        val allSeats = row.getAsJsonArray("allSeats") ?: JsonArray()
+        if (seats.size() == 0) return JsonObject().apply { addProperty("ok", false); addProperty("error", "no_selectable_seats") }
+
+        var bestIdx = 0
+        when (colHint) {
+            "left" -> bestIdx = 0
+            "right" -> bestIdx = seats.size() - 1
+            else -> {
+                var minDist = Double.MAX_VALUE
+                for (i in 0 until seats.size()) {
+                    val d = abs((seats.get(i).asJsonObject.get("x")?.asDouble ?: 0.0) - cx)
+                    if (d < minDist) { minDist = d; bestIdx = i }
+                }
+            }
+        }
+
+        var best = seats.get(bestIdx).asJsonObject
+        var bestX = best.get("x")?.asDouble ?: 0.0
+        var bestY = best.get("y")?.asDouble ?: 0.0
+        if (allSeats.size() > 1 && wouldIsolate(allSeats, bestX)) {
+            outer@ for (d in 1 until seats.size()) {
+                val hi = bestIdx + d
+                val lo = bestIdx - d
+                if (hi < seats.size()) {
+                    val sm = seats.get(hi).asJsonObject
+                    val sx = sm.get("x")?.asDouble ?: 0.0
+                    if (!wouldIsolate(allSeats, sx)) { best = sm; bestX = sx; bestY = sm.get("y")?.asDouble ?: 0.0; break@outer }
+                }
+                if (lo >= 0) {
+                    val sm = seats.get(lo).asJsonObject
+                    val sx = sm.get("x")?.asDouble ?: 0.0
+                    if (!wouldIsolate(allSeats, sx)) { best = sm; bestX = sx; bestY = sm.get("y")?.asDouble ?: 0.0; break@outer }
+                }
+            }
+        }
+
+        dispatchClickAt(pageBridge, bestX, bestY)
+        kotlinx.coroutines.delay(1200)
+
+        var selectedNow = selectedNowCount(pageBridge)
+        if (selectedNow == 0) {
+            dispatchClickAt(pageBridge, bestX, bestY)
+            kotlinx.coroutines.delay(1500)
+            selectedNow = selectedNowCount(pageBridge)
+        }
+
+        if (selectedNow > 0) {
+            val v = evalJson(pageBridge, MAOYAN_SEAT_VERIFY_SCRIPT)?.asJsonObject
+            val orderBtn = v?.get("orderBtn")
+            val confirmed = autoConfirmSeat(pageBridge, orderBtn)
+            if (confirmed.get("error")?.asString == "isolated_seat") {
+                evalRaw(pageBridge, "(function(){ var s=document.querySelector('.seat.selected'); if(s) s.click(); })()")
+                kotlinx.coroutines.delay(500)
+                var altIdx = bestIdx + 1
+                if (altIdx >= seats.size()) altIdx = bestIdx - 1
+                if (altIdx >= 0 && altIdx < seats.size()) {
+                    val alt = seats.get(altIdx).asJsonObject
+                    dispatchClickAt(pageBridge, alt.get("x")?.asDouble ?: 0.0, alt.get("y")?.asDouble ?: 0.0)
+                    kotlinx.coroutines.delay(1500)
+                    val v2 = evalJson(pageBridge, MAOYAN_SEAT_VERIFY_SCRIPT)?.asJsonObject
+                    if (v2 != null && (v2.get("selectedNow")?.asInt ?: 0) > 0) {
+                        val ob2 = v2.get("orderBtn")
+                        val c2 = autoConfirmSeat(pageBridge, ob2)
+                        return JsonObject().apply {
+                            addProperty("ok", true)
+                            addProperty("selectedNow", v2.get("selectedNow")?.asInt ?: 0)
+                            add("price", v2.get("price") ?: JsonNull.INSTANCE)
+                            add("orderBtn", ob2 ?: JsonNull.INSTANCE)
+                            add("chosenRowIdx", row.get("rowIdx") ?: JsonNull.INSTANCE)
+                            add("confirmed", c2)
+                        }
+                    }
+                }
+            }
+            return JsonObject().apply {
+                addProperty("ok", true)
+                addProperty("selectedNow", selectedNow)
+                add("price", v?.get("price") ?: JsonNull.INSTANCE)
+                add("orderBtn", orderBtn ?: JsonNull.INSTANCE)
+                add("chosenRowIdx", row.get("rowIdx") ?: JsonNull.INSTANCE)
+                addProperty("chosenSeatX", bestX)
+                add("confirmed", confirmed)
+            }
+        }
+
+        evalRaw(pageBridge, "document.querySelector('span.seat.selectable') && document.querySelector('span.seat.selectable').click();")
+        kotlinx.coroutines.delay(1500)
+        val v3 = evalJson(pageBridge, MAOYAN_SEAT_VERIFY_SCRIPT)?.asJsonObject
+        if (v3 != null && (v3.get("selectedNow")?.asInt ?: 0) > 0) {
+            val ob3 = v3.get("orderBtn")
+            return JsonObject().apply {
+                addProperty("ok", true)
+                addProperty("selectedNow", v3.get("selectedNow")?.asInt ?: 0)
+                add("price", v3.get("price") ?: JsonNull.INSTANCE)
+                add("orderBtn", ob3 ?: JsonNull.INSTANCE)
+                add("chosenRowIdx", row.get("rowIdx") ?: JsonNull.INSTANCE)
+                addProperty("fallback", true)
+                add("confirmed", autoConfirmSeat(pageBridge, ob3))
+            }
+        }
+        return JsonObject().apply {
+            addProperty("ok", false); addProperty("error", "click_no_effect"); addProperty("availableCount", availCount)
         }
     }
 

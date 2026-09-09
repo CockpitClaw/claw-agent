@@ -165,14 +165,15 @@ User / CLI / message channel
 +-------------------------------------------+
 ```
 
-The repository contains two independent Go modules:
+The repository has two independent Go modules plus one in-vehicle Android (Kotlin) module:
 
 | Module | Location | Responsibility |
 |---|---|---|
-| `mac-web-agent` | repository root | Browser MCP server and Chrome/CDP integration |
-| `github.com/sipeed/picoclaw` | `picoclaw/` | Agent runtime, providers, sessions, tools, MCP client, gateway, and channels |
+| `claw-agent` | repository root (`browser-mcp/`) | macOS execution layer: Browser MCP server and Chrome/CDP integration |
+| `github.com/sipeed/picoclaw` | `picoclaw/` | Decision layer: agent runtime, providers, sessions, tools, MCP client, gateway, and channels (shared by macOS and in-vehicle) |
+| `com.clawagent` (Kotlin/Gradle) | `android/` | In-vehicle execution layer: `android-mcp` (WebView CDP + native-app accessibility) |
 
-They are coupled at runtime through MCP, not through Go imports.
+All three are coupled at runtime through MCP, not through imports.
 
 ## How a request is executed
 
@@ -331,6 +332,8 @@ Debug output and an isolated named session:
 
 `start.sh` synchronizes the latest skills, renders configuration, starts or reuses Chrome and `browser-mcp`, and then launches Claw Agent.
 
+> **Browser vs built-in search for information tasks**: the macOS config keeps the built-in `web_search`/`web_fetch` enabled, so pure information tasks ("check weather / search GitHub / hot topics") may be satisfied by built-in search/fetch (faster) instead of driving real Chrome. To route such tasks through the real browser, add a hint like **"用浏览器 / open in browser / use the browser"** to the query; to force it (like the in-vehicle config does), set `tools.web.enabled` and `tools.web_fetch.enabled` to `false` in `config/picoclaw.config.json` and re-run `./scripts/setup.sh`.
+
 ## Android (in-vehicle) setup
 
 Claw Agent also offers a symmetric in-vehicle profile: the same Agent runtime makes decisions, while an Android execution layer directly operates in-vehicle apps and web pages.
@@ -407,10 +410,10 @@ picoclaw only treats keys starting with `sk_v1_` or `agent:` as an **explicit se
 
 ### In-vehicle MCP tools
 
-`android-mcp` exposes 36 tools, prefixed `mcp_android_*`, in two groups:
+`android-mcp` exposes 48 tools, prefixed `mcp_android_*`, in two groups:
 
-- **WebView CDP (24)**: `list_pages`, `navigate_page`, `take_snapshot`, `take_screenshot`, `click`, `type`, `scroll_up/down`, `evaluate_script`, etc., operating in-vehicle **web pages** — in clawagent's embedded WebView or the vehicle browser's WebView, driven over CDP.
-- **Native accessibility (12)**: `native_launch_app`, `native_get_foreground_app`, `native_get_ui_tree`, `native_click(_node)`, `native_input_text`, `native_scroll`, `native_press_back/home`, `native_screenshot`, etc., operating in-vehicle **native apps** — no DOM, so reachable only through the accessibility node tree and coordinate taps.
+- **WebView CDP (35)**: `list_pages`, `navigate_page`, `take_snapshot`, `take_screenshot`, `click`, `type`, `scroll_up/down`, `evaluate_script`, plus the JD/Maoyan shopping helpers (`jd_get_sizes`, `jd_select_size`, `jd_find_pay_button`, `maoyan_get_cinemas`, `maoyan_get_shows`, `maoyan_click_show`, `maoyan_query_seats`, `maoyan_select_seat`, `maoyan_dismiss_modal`), `new_page`, `dom_click`, etc., operating in-vehicle **web pages** — in clawagent's embedded WebView or the vehicle browser's WebView, driven over CDP.
+- **Native accessibility (13)**: `native_launch_app`, `native_get_foreground_app`, `native_get_ui_tree`, `native_click(_node)`, `native_input_text`, `native_input_to_node`, `native_long_click`, `native_open_miniprogram`, `native_scroll`, `native_press_back/home`, `native_screenshot`, etc., operating in-vehicle **native apps** — no DOM, so reachable only through the accessibility node tree and coordinate taps.
 
 ### Important notes
 
@@ -470,10 +473,10 @@ The Agent Runtime provides provider interfaces, a provider factory, and channel 
 
 ## Testing
 
-The repository has two module boundaries, so validate them separately.
+The repository has two Go modules plus one in-vehicle Android module; validate them separately.
 
 ```bash
-# Root module: compiles and runs any root Go tests
+# Root module (claw-agent → browser-mcp): compiles and runs root Go tests
 go test ./...
 
 # Agent runtime unit and web tests
@@ -482,6 +485,10 @@ make test
 
 # Optional Docker-backed MCP integration tests
 make integration-test
+
+# In-vehicle android-mcp execution layer (Kotlin)
+cd android
+./gradlew assembleDebug
 ```
 
 A manual browser integration script is also available:
@@ -538,7 +545,7 @@ claw-agent/
 
 - **You must supply your own LLM**: this project ships no model service. Fill in your LLM API key in `.env` (any OpenAI-compatible service works: OpenAI, Aliyun Qwen, DeepSeek, etc.), or use a local Ollama. Both target environments (mac browser and vehicle) must be able to reach the LLM endpoint you configure.
 - **The vehicle WebView is unstable for some sites**: the embedded WebView (Chrome for WebView) can be slow or trigger anti-bot checks on a few CSR / heavily-protected sites (e.g. Weibo hot-search, Baidu search), performing worse than mac desktop Chrome. When such a site fails to load on the vehicle, the agent reports that it couldn't retrieve data rather than fabricating it.
-- **Vehicle native apps may be covered by an overlay**: some vehicles (e.g. Li Auto) run a persistent translucent sidebar Activity (`com.lixiang.sidebar`) that sits above newly-launched apps, hiding them from the foreground even though the app is actually running and its UI is still readable via accessibility. This is vehicle-system behavior, not a project issue.
+- **Vehicle native apps may be covered by an overlay**: some vehicles run a persistent translucent sidebar Activity (`com.xxx.sidebar`) that sits above newly-launched apps, hiding them from the foreground even though the app is actually running and its UI is still readable via accessibility. This is vehicle-system behavior, not a project issue.
 - **The vehicle build relaxes cleartext traffic**: `AndroidManifest` sets `usesCleartextTraffic="true"` so the WebView CDP `ws://` WebSocket can reach the localhost DevTools. This is a common trade-off for an in-vehicle intranet app; assess the security impact if you distribute it externally.
 - **Platform adapters depend on page DOM**: selectors/helpers can break after a site upgrades; update `skills/*` or the `browser-mcp`/`android-mcp` adapter logic accordingly.
 

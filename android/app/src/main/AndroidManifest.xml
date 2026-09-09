@@ -15,6 +15,16 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+        让 native_launch_app / getLaunchIntentForPackage 能看到并启动车机上任意已安装 app。
+        Android 11+ 默认做「包可见性」过滤，缺此权限时 getLaunchIntentForPackage 对
+        非系统/非自身 app 会返回 null，导致 native 层误报「app 未安装」。
+        本 app 为侧载工具（非商店上架），可豁免 Play 政策限制。
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryPermissionsNeeded" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

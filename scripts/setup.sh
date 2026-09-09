@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup.sh — one-time setup for mac-web-agent
+# setup.sh — one-time setup for claw-agent
 # Builds the two Go binaries: picoclaw + browser-mcp. No Node/pnpm needed.
 #
 # Usage: ./scripts/setup.sh
@@ -65,7 +65,7 @@ done
 ok "Skills synced: $(ls "$PICOCRAW_HOME/workspace/skills" | tr '\n' ' ')"
 
 step "Syncing workspace rules (SOUL.md, AGENT.md) to $PICOCRAW_HOME/workspace"
-# These two files define the agent's behavior for THIS repo (mac-web-agent).
+# These two files define the agent's behavior for THIS repo (claw-agent).
 # We overwrite the workspace copies so a stale car-vehicle version doesn't bleed in.
 # We deliberately do NOT touch IDENTITY.md, USER.md, HEARTBEAT.md, or memory/ —
 # those are the user's personal config.

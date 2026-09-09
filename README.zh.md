@@ -166,14 +166,15 @@ Claw Agent 采用 Go 实现轻量级运行时，在参考测试中展现出优�
 └────────────────────────────────────────┘
 ```
 
-仓库包含两个相互独立的 Go module：
+仓库包含两个相互独立的 Go module，外加一个车机 Android（Kotlin）执行模块：
 
 | Module | 位置 | 职责 |
 |---|---|---|
-| `mac-web-agent` | 仓库根目录 | Browser MCP 服务与 Chrome/CDP 集成 |
-| `github.com/sipeed/picoclaw` | `picoclaw/` | Agent Runtime、Provider、Session、工具、MCP 客户端、gateway 与渠道 |
+| `claw-agent` | 仓库根目录（`browser-mcp/`） | mac 执行层：Browser MCP 服务与 Chrome/CDP 集成 |
+| `github.com/sipeed/picoclaw` | `picoclaw/` | 决策层：Agent Runtime、Provider、Session、工具、MCP 客户端、gateway 与渠道（mac 与车机共用） |
+| `com.clawagent`（Kotlin/Gradle） | `android/` | 车机执行层：`android-mcp`（WebView CDP + 原生无障碍） |
 
-两者在运行时通过 MCP 耦合，不通过 Go import 耦合。
+三者都在运行时通过 MCP 耦合，不通过 import 耦合。
 
 ## 一次请求如何执行
 
@@ -339,6 +340,8 @@ PICOCRAW_MODEL_NAME=ollama-local
 
 `start.sh` 会同步最新 Skill、渲染配置、启动或复用 Chrome 与 `browser-mcp`，最后启动 Claw Agent。
 
+> **关于「信息检索」类任务走浏览器还是内置搜索**：mac 端默认保留了内置 `web_search`/`web_fetch` 快捷工具，因此「查天气 / 搜 GitHub 高星仓库 / 看热搜」这类纯信息任务时，Agent 可能直接用内置搜索/抓取完成（更快），而不是驱动真实 Chrome。若想让这类任务也走真实浏览器，可在 query 里加**「用浏览器 / 打开浏览器 / 打开网页」**等关键词提示；想要强制（像车机端一样）关闭内置搜索捷径，则在 `config/picoclaw.config.json` 里把 `tools.web.enabled` 与 `tools.web_fetch.enabled` 设为 `false` 后重新 `./scripts/setup.sh`。
+
 ## 车机端（Android）运行
 
 Claw Agent 除了 mac 端浏览器形态，还提供对称的车机端形态：用同一套 Agent Runtime 决策，改由 Android 执行层直接操作车机应用与车机网页。
@@ -413,10 +416,10 @@ picoclaw 只把 `sk_v1_` 或 `agent:` 开头的 key 当作**显式 session**，�
 
 ### 车机端 MCP 工具
 
-`android-mcp` 当前暴露 36 个工具，通过 `mcp_android_*` 前缀暴露给 Agent，分为两类：
+`android-mcp` 当前暴露 48 个工具，通过 `mcp_android_*` 前缀暴露给 Agent，分为两类：
 
-- **WebView CDP（24 个）**：`list_pages`、`navigate_page`、`take_snapshot`、`take_screenshot`、`click`、`type`、`scroll_up/down`、`evaluate_script` 等，操作**车机网页**——包括 clawagent 内嵌 WebView 与车机浏览器中的 WebView，通过 CDP 直连 DOM。
-- **无障碍 native（12 个）**：`native_launch_app`、`native_get_foreground_app`、`native_get_ui_tree`、`native_click(_node)`、`native_input_text`、`native_scroll`、`native_press_back/home`、`native_screenshot` 等，操作**车机原生 App**——原生界面没有 DOM，只能通过无障碍节点树和坐标点击。
+- **WebView CDP（35 个）**：`list_pages`、`navigate_page`、`take_snapshot`、`take_screenshot`、`click`、`type`、`scroll_up/down`、`evaluate_script`，以及京东/猫眼购物 helper（`jd_get_sizes`、`jd_select_size`、`jd_find_pay_button`、`maoyan_get_cinemas`、`maoyan_get_shows`、`maoyan_click_show`、`maoyan_query_seats`、`maoyan_select_seat`、`maoyan_dismiss_modal`）、`new_page`、`dom_click` 等，操作**车机网页**——包括 clawagent 内嵌 WebView 与车机浏览器中的 WebView，通过 CDP 直连 DOM。
+- **无障碍 native（13 个）**：`native_launch_app`、`native_get_foreground_app`、`native_get_ui_tree`、`native_click(_node)`、`native_input_text`、`native_input_to_node`、`native_long_click`、`native_open_miniprogram`、`native_scroll`、`native_press_back/home`、`native_screenshot` 等，操作**车机原生 App**——原生界面没有 DOM，只能通过无障碍节点树和坐标点击。
 
 ### 关键注意
 
@@ -476,10 +479,10 @@ Agent Runtime 提供 Provider 接口、Provider Factory 和 Channel Factory。Op
 
 ## 测试
 
-仓库存在两个 Go module，需要分别验证：
+仓库有两个 Go module 和一个车机 Android module，需要分别验证：
 
 ```bash
-# 根模块：编译并运行根模块已有 Go 测试
+# 根模块（claw-agent → browser-mcp）：编译并运行根模块已有 Go 测试
 go test ./...
 
 # Agent Runtime 单元测试和 Web 测试
@@ -488,6 +491,10 @@ make test
 
 # 可选：Docker 驱动的 MCP 集成测试
 make integration-test
+
+# 车机 android-mcp 执行层（Kotlin）
+cd android
+./gradlew assembleDebug
 ```
 
 仓库还提供真实网站手工集成脚本：
@@ -544,7 +551,7 @@ claw-agent/
 
 - **需要自行准备 LLM**：本项目不自带模型服务，需要你在 `.env` 填自己的 LLM API key（OpenAI 兼容的服务均可，如 OpenAI / 阿里百炼 / DeepSeek），或用本地 Ollama。不同的设备（mac 浏览器 vs 车机）需要能访问该 LLM 端点。
 - **车机 WebView 对部分站点不稳定**：车机内嵌 WebView（基于 Chrome for WebView）对少数 CSR/高反爬站点（如微博热搜、百度搜索）可能加载缓慢或触发安全验证，表现不如 mac 桌面 Chrome。这类站点若在车机加载失败，Agent 会如实报告拿不到数据，而非编造。
-- **车机原生 App 可能被 sidebar 遮罩**：理想车机等有常驻透明 sidebar Activity（如 `com.lixiang.sidebar`）会盖在新启动的 app 之上，导致前台看不到目标 app（但 app 实际已在后台运行、无障碍仍能读到其 UI）。这是车机系统层行为，非本项目问题。
+- **车机原生 App 可能被 sidebar 遮罩**：车机等有常驻透明 sidebar Activity（如 `com.xxx.sidebar`）会盖在新启动的 app 之上，导致前台看不到目标 app（但 app 实际已在后台运行、无障碍仍能读到其 UI）。这是车机系统层行为，非本项目问题。
 - **车机端放宽明文流量**：`AndroidManifest` 设了 `usesCleartextTraffic="true"`，用于让 WebView CDP 的 `ws://` 明文 WebSocket 连上 localhost DevTools。这是车机内网 app 的常规取舍，若对外发布需评估安全影响。
 - **平台适配依赖页面 DOM**：网站升级后 Selector/Helper 可能失效，需要更新 `skills/*` 或 `browser-mcp`/`android-mcp` 中的适配逻辑。
 

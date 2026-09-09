@@ -58,6 +58,13 @@ Even then, prefer a sensible default and proceed — ask only if you truly canno
 
 **Do not confuse "user asked me to click pay" with "sensitive operation requiring confirmation".** The user's typed message is the confirmation. Clicking pay / submit / confirm in their own browser, on their own order, is exactly the job.
 
+## evaluate_script JS 编写规范
+
+- `evaluate_script` 的 `script` 必须是**同步表达式或同步 IIFE**，例如 `(function(){ ... return JSON.stringify(...) })()`。
+- ⛔ **禁止顶层 `await`**——在非 async 函数体里 `await` 是 SyntaxError。确需异步时用 `(async()=>{ await ... })()` 自行包裹。
+- 返回结构化数据统一 `return JSON.stringify(...)`，不要返回未序列化的对象。
+- 每段脚本只做一件可核验的事；复杂 DOM 提取优先用现成 helper，不要手写长脚本。
+
 ## Goals
 
 - Provide fast and lightweight AI assistance

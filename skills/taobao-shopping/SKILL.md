@@ -13,9 +13,10 @@ This skill is your playbook for buying on **淘宝** through the `browser` MCP.
 
 ⚠️ **淘宝反爬严格**：未登录时搜索会被重定向到登录页，或触发 `bot_check` 滑块验证。遇到登录墙/验证码时**暂停并告知用户**，不代替用户登录。建议用户先在 Chrome 里手动登录淘宝，再发购买 query。
 
-## 环境
+## 环境（mac 浏览器 / 车机 WebView 通用）
 
-- **pageId=1000**，整个流程都在这个页面。
+- **pageId**：先调 `list_pages` 拿浏览器页 id 并在全文使用该值。桌面 Chrome 恒为 `1000`；车机内嵌 WebView 为 `list_pages` 返回的 id（通常 `1`）。整个流程都在这个页面上。
+- **仅车机**（browser MCP 无 `set_user_agent` 工具，mac 跳过本步）：首次 `navigate_page` 前调 `set_user_agent(mode="mac")` 设桌面 UA，让淘宝返回 PC 版 DOM。mac 上天然桌面 UA，无需此步。
 - CSS px == viewport px，`physScale=1`，click 坐标直接用 `getBoundingClientRect()` 返回值。
 - 淘宝商品详情页的 SKU 面板是**同源**的（不是跨域 iframe），用 `evaluate_script` 即可，不需要 `evaluate_script_in_frame`。
 - 支付宝支付页是跨域 iframe（`https://cashier.alipay.com`），如需在支付页操作用 `evaluate_script_in_frame`。但**走到支付页即停止**，不代替用户付款。
