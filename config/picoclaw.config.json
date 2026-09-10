@@ -1,0 +1,503 @@
+{
+  "session": {
+    "dimensions": [
+      "chat"
+    ]
+  },
+  "version": 3,
+  "isolation": {},
+  "agents": {
+    "defaults": {
+      "workspace": "~/.picoclaw/workspace",
+      "restrict_to_workspace": true,
+      "allow_read_outside_workspace": false,
+      "provider": "",
+      "model_name": "${PICOCRAW_MODEL_NAME}",
+      "max_tokens": 65536,
+      "max_tool_iterations": 200,
+      "summarize_message_threshold": 10,
+      "summarize_token_percent": 75,
+      "steering_mode": "one-at-a-time",
+      "subturn": {
+        "max_depth": 0,
+        "max_concurrent": 0,
+        "default_timeout_minutes": 0,
+        "default_token_budget": 0,
+        "concurrency_timeout_sec": 0
+      },
+      "tool_feedback": {
+        "enabled": false,
+        "max_args_length": 300,
+        "separate_messages": false
+      },
+      "split_on_marker": false,
+      "turn_profile": {
+        "enabled": false,
+        "history": {},
+        "system_prompt": {},
+        "skills": {},
+        "tools": {}
+      },
+      "max_llm_retries": 2,
+      "llm_retry_backoff_secs": 2
+    }
+  },
+  "evolution": {
+    "min_task_count": 2,
+    "min_success_ratio": 0.7
+  },
+  "channel_list": {
+    "deltachat": {
+      "enabled": false,
+      "type": "deltachat",
+      "reasoning_channel_id": "",
+      "group_trigger": {
+        "mention_only": true
+      },
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "display_name": "PicoClaw Bot",
+        "email": "@nine.testrun.org"
+      }
+    },
+    "dingtalk": {
+      "enabled": false,
+      "type": "dingtalk",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      }
+    },
+    "discord": {
+      "enabled": false,
+      "type": "discord",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      }
+    },
+    "feishu": {
+      "enabled": false,
+      "type": "feishu",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      }
+    },
+    "irc": {
+      "enabled": false,
+      "type": "irc",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "channels": [],
+        "nick": "picoclaw",
+        "server": "",
+        "tls": true
+      }
+    },
+    "line": {
+      "enabled": false,
+      "type": "line",
+      "reasoning_channel_id": "",
+      "group_trigger": {
+        "mention_only": true
+      },
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "webhook_host": "0.0.0.0",
+        "webhook_path": "/webhook/line",
+        "webhook_port": 18791
+      }
+    },
+    "maixcam": {
+      "enabled": false,
+      "type": "maixcam",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "host": "0.0.0.0",
+        "port": 18790
+      }
+    },
+    "matrix": {
+      "enabled": false,
+      "type": "matrix",
+      "reasoning_channel_id": "",
+      "group_trigger": {
+        "mention_only": true
+      },
+      "typing": {},
+      "placeholder": {
+        "enabled": true,
+        "text": [
+          "Thinking... 💭"
+        ]
+      },
+      "settings": {
+        "homeserver": "https://matrix.org",
+        "join_on_invite": true
+      }
+    },
+    "onebot": {
+      "enabled": false,
+      "type": "onebot",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "reconnect_interval": 5,
+        "ws_url": "ws://127.0.0.1:3001"
+      }
+    },
+    "pico": {
+      "enabled": false,
+      "type": "pico",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "max_connections": 100,
+        "ping_interval": 30,
+        "read_timeout": 60,
+        "streaming": {
+          "enabled": true
+        },
+        "write_timeout": 10
+      }
+    },
+    "qq": {
+      "enabled": false,
+      "type": "qq",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "max_message_length": 2000
+      }
+    },
+    "slack": {
+      "enabled": false,
+      "type": "slack",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      }
+    },
+    "telegram": {
+      "enabled": false,
+      "type": "telegram",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {
+        "enabled": true
+      },
+      "placeholder": {
+        "enabled": true,
+        "text": [
+          "Thinking... 💭"
+        ]
+      },
+      "settings": {
+        "media_group_delay_ms": 500,
+        "use_markdown_v2": false
+      }
+    },
+    "wecom": {
+      "enabled": false,
+      "type": "wecom",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "send_thinking_message": true,
+        "websocket_url": "wss://openws.work.weixin.qq.com"
+      }
+    },
+    "weixin": {
+      "enabled": false,
+      "type": "weixin",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "base_url": "https://ilinkai.weixin.qq.com/",
+        "cdn_base_url": "https://novac2c.cdn.weixin.qq.com/c2c"
+      }
+    },
+    "whatsapp": {
+      "enabled": false,
+      "type": "whatsapp",
+      "reasoning_channel_id": "",
+      "group_trigger": {},
+      "typing": {},
+      "placeholder": {
+        "enabled": false
+      },
+      "settings": {
+        "bridge_url": "ws://localhost:3001"
+      }
+    }
+  },
+  "model_list": [
+    {
+      "model_name": "default",
+      "model": "openai/${LLM_MODEL_ID}",
+      "api_keys": [
+        "${LLM_API_KEY}"
+      ],
+      "api_base": "${LLM_API_BASE}",
+      "thinking_level": "${LLM_THINKING_LEVEL}"
+    },
+    {
+      "model_name": "ollama-local",
+      "model": "openai/${LLM_MODEL_ID}",
+      "api_keys": [
+        "ollama"
+      ],
+      "api_base": "http://127.0.0.1:11434/v1"
+    }
+  ],
+  "gateway": {
+    "host": "localhost",
+    "port": 18790,
+    "hot_reload": false,
+    "log_level": "warn"
+  },
+  "events": {
+    "logging": {
+      "enabled": true,
+      "include": [
+        "agent.*"
+      ],
+      "min_severity": "info"
+    }
+  },
+  "hooks": {
+    "enabled": true,
+    "defaults": {
+      "observer_timeout_ms": 500,
+      "interceptor_timeout_ms": 5000,
+      "approval_timeout_ms": 60000
+    }
+  },
+  "tools": {
+    "allow_read_paths": null,
+    "allow_write_paths": null,
+    "filter_sensitive_data": true,
+    "filter_min_length": 8,
+    "web": {
+      "enabled": true,
+      "brave": {
+        "enabled": false,
+        "max_results": 5
+      },
+      "tavily": {
+        "enabled": false,
+        "base_url": "",
+        "max_results": 5
+      },
+      "kagi": {
+        "enabled": false,
+        "base_url": "https://kagi.com/api/v1/search",
+        "max_results": 5
+      },
+      "sogou": {
+        "enabled": true,
+        "max_results": 5
+      },
+      "duckduckgo": {
+        "enabled": false,
+        "max_results": 5
+      },
+      "gemini": {
+        "enabled": false,
+        "model": "gemini-2.5-flash",
+        "max_results": 5
+      },
+      "perplexity": {
+        "enabled": false,
+        "max_results": 5
+      },
+      "searxng": {
+        "enabled": false,
+        "base_url": "",
+        "max_results": 5
+      },
+      "glm_search": {
+        "enabled": false,
+        "base_url": "https://open.bigmodel.cn/api/paas/v4/web_search",
+        "search_engine": "search_std",
+        "max_results": 5
+      },
+      "baidu_search": {
+        "enabled": false,
+        "base_url": "https://qianfan.baidubce.com/v2/ai_search/web_search",
+        "max_results": 10
+      },
+      "provider": "auto",
+      "prefer_native": true,
+      "fetch_limit_bytes": 10485760,
+      "format": "plaintext"
+    },
+    "cron": {
+      "enabled": true,
+      "exec_timeout_minutes": 5,
+      "allow_command": true,
+      "command_allowed_remotes": null
+    },
+    "exec": {
+      "enabled": false,
+      "enable_deny_patterns": true,
+      "allow_remote": false,
+      "custom_deny_patterns": null,
+      "custom_allow_patterns": null,
+      "timeout_seconds": 60
+    },
+    "skills": {
+      "enabled": true,
+      "registries": {
+        "clawhub": {
+          "base_url": "https://clawhub.ai",
+          "enabled": true
+        },
+        "github": {
+          "base_url": "https://github.com",
+          "enabled": true
+        }
+      },
+      "github": {},
+      "max_concurrent_searches": 2,
+      "search_cache": {
+        "max_size": 50,
+        "ttl_seconds": 300
+      }
+    },
+    "media_cleanup": {
+      "enabled": true,
+      "max_age_minutes": 30,
+      "interval_minutes": 5
+    },
+    "mcp": {
+      "enabled": true,
+      "servers": {
+        "browser": {
+          "enabled": true,
+          "type": "http",
+          "url": "http://127.0.0.1:${MCP_PORT}/mcp"
+        }
+      }
+    },
+    "append_file": {
+      "enabled": true
+    },
+    "edit_file": {
+      "enabled": true
+    },
+    "find_skills": {
+      "enabled": true
+    },
+    "i2c": {
+      "enabled": false
+    },
+    "install_skill": {
+      "enabled": true
+    },
+    "list_dir": {
+      "enabled": true
+    },
+    "load_image": {
+      "enabled": true
+    },
+    "message": {
+      "enabled": true,
+      "media_enabled": false
+    },
+    "read_file": {
+      "enabled": true,
+      "mode": "bytes",
+      "max_read_file_size": 65536
+    },
+    "serial": {
+      "enabled": false
+    },
+    "send_file": {
+      "enabled": true
+    },
+    "send_tts": {
+      "enabled": false
+    },
+    "spawn": {
+      "enabled": true
+    },
+    "spawn_status": {
+      "enabled": false
+    },
+    "spi": {
+      "enabled": false
+    },
+    "subagent": {
+      "enabled": true
+    },
+    "web_fetch": {
+      "enabled": true
+    },
+    "write_file": {
+      "enabled": true
+    }
+  },
+  "heartbeat": {
+    "enabled": true,
+    "interval": 30
+  },
+  "devices": {
+    "enabled": false,
+    "monitor_usb": true
+  },
+  "voice": {
+    "echo_transcription": false
+  },
+  "build_info": {
+    "version": "dev",
+    "git_commit": "",
+    "build_time": "",
+    "go_version": ""
+  }
+}

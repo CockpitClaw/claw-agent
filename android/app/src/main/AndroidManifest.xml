@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!--
+        WRITE_SECURE_SETTINGS：用于编程方式自动启用 NativeAccessibilityService。
+        普通设备（非平台签名）无法获得此权限，需要用户手动在「设置 → 无障碍」开启。
+    -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+        让 native_launch_app / getLaunchIntentForPackage 能看到并启动车机上任意已安装 app。
+        Android 11+ 默认做「包可见性」过滤，缺此权限时 getLaunchIntentForPackage 对
+        非系统/非自身 app 会返回 null，导致 native 层误报「app 未安装」。
+        本 app 为侧载工具（非商店上架），可豁免 Play 政策限制。
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryPermissionsNeeded" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ClawAgent"
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true">
+
+        <!-- 主入口：WebView 远程控制（承载 CDP + MCP 工具层） -->
+        <activity
+            android:name=".WebViewRemoteControlActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation|uiMode|screenLayout|smallestScreenSize|density|fontScale"
+            android:theme="@style/Theme.ClawAgent">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- McpServerService — 常驻托管 MCP Server（:19003），与 Activity 解耦 -->
+        <service
+            android:name="com.clawagent.mcp.McpServerService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- NativeAccessibilityService — 为 MCP 无障碍工具提供原生 UI 控制能力 -->
+        <service
+            android:name="com.clawagent.accessibility.NativeAccessibilityService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:label="@string/native_accessibility_service_label">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/native_accessibility_service_config" />
+        </service>
+
+    </application>
+
+</manifest>
