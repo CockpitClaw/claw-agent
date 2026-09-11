@@ -551,7 +551,7 @@ claw-agent/
 
 - **需要自行准备 LLM**：本项目不自带模型服务，需要你在 `.env` 填自己的 LLM API key（OpenAI 兼容的服务均可，如 OpenAI / 阿里百炼 / DeepSeek），或用本地 Ollama。不同的设备（mac 浏览器 vs 车机）需要能访问该 LLM 端点。
 - **车机 WebView 对部分站点不稳定**：车机内嵌 WebView（基于 Chrome for WebView）对少数 CSR/高反爬站点（如微博热搜、百度搜索）可能加载缓慢或触发安全验证，表现不如 mac 桌面 Chrome。这类站点若在车机加载失败，Agent 会如实报告拿不到数据，而非编造。
-- **车机原生 App 可能被 sidebar 遮罩**：理想车机等有常驻透明 sidebar Activity（如 `com.XXX.sidebar`）会盖在新启动的 app 之上，导致前台看不到目标 app（但 app 实际已在后台运行、无障碍仍能读到其 UI）。这是车机系统层行为，非本项目问题。
+- **车机原生 App 可能被 sidebar 遮罩**车机等有常驻透明 sidebar Activity（如 `com.XXX.sidebar`）会盖在新启动的 app 之上，导致前台看不到目标 app（但 app 实际已在后台运行、无障碍仍能读到其 UI）。这是车机系统层行为，非本项目问题。
 - **车机端放宽明文流量**：`AndroidManifest` 设了 `usesCleartextTraffic="true"`，用于让 WebView CDP 的 `ws://` 明文 WebSocket 连上 localhost DevTools。这是车机内网 app 的常规取舍，若对外发布需评估安全影响。
 - **平台适配依赖页面 DOM**：网站升级后 Selector/Helper 可能失效，需要更新 `skills/*` 或 `browser-mcp`/`android-mcp` 中的适配逻辑。
 
